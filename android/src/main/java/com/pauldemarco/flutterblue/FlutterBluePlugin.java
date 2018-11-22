@@ -477,23 +477,28 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
 
             case "requestMtu":
             {
-                byte[] data = call.arguments();
-                Protos.MtuMessage request;
-                try {
-                    request = Protos.MtuMessage.newBuilder().mergeFrom(data).build();
-                } catch (InvalidProtocolBufferException e) {
-                    result.error("RuntimeException", e.getMessage(), e);
-                    break;
-                }
-                BluetoothGatt gattServer = mGattServers.get(request.getRemoteId());
-                if(gattServer == null) {
-                    result.error("request_mtu_error", "no instance of BluetoothGatt, have you connected first?", null);
-                    return;
-                }
-                if(gattServer.requestMtu(request.getMtu())) {
-                    result.success(null);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    byte[] data = call.arguments();
+                    Protos.MtuMessage request;
+                    try {
+                        request = Protos.MtuMessage.newBuilder().mergeFrom(data).build();
+                    } catch (InvalidProtocolBufferException e) {
+                        result.error("RuntimeException", e.getMessage(), e);
+                        break;
+                    }
+                    BluetoothGatt gattServer = mGattServers.get(request.getRemoteId());
+                    if (gattServer == null) {
+                        result.error("request_mtu_error", "no instance of BluetoothGatt, have you connected first?", null);
+
+                        return;
+                    }
+                    if (gattServer.requestMtu(request.getMtu())) {
+                        result.success(null);
+                    } else {
+                        result.error("request_mtu_error", "unknown reason", null);
+                    }
                 } else {
-                    result.error("request_mtu_error", "unknown reason", null);
+                    result.error("request_mtu_error", "MTU Request is not supported by this Android version.", null);
                 }
                 break;
             }
@@ -900,10 +905,14 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
         public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
             Log.d(TAG, "onMtuChanged: " + mtu + " sink:" + mtuSink);
             if(mtuSink != null) {
-                Protos.MtuMessage.Builder p = Protos.MtuMessage.newBuilder();
-                p.setRemoteId(gatt.getDevice().getAddress());
-                p.setMtu(mtu);
-                mtuSink.success(p.build().toByteArray());
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    Protos.MtuMessage.Builder p = Protos.MtuMessage.newBuilder();
+                    p.setRemoteId(gatt.getDevice().getAddress());
+                    p.setMtu(mtu);
+                    mtuSink.success(p.build().toByteArray());
+                } else {
+                    mtuSink.error("request_mtu_error", "MTU Request doesn't succeed.", null);
+                }
             }
         }
     };

@@ -42,11 +42,12 @@ class BluetoothDevice {
   }
 
   /// Request an MTU size used for a given remote device.
-  /// Returns the new MTU size.
+  /// Returns the new MTU size or null if operation failed.
   Future<int> requestMtu(int mtu) async {
     var request = protos.MtuMessage.create()
       ..remoteId = id.toString()
       ..mtu = mtu;
+
     await FlutterBlue.instance._channel
         .invokeMethod('requestMtu', request.writeToBuffer());
 
