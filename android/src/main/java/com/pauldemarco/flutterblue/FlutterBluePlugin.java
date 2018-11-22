@@ -66,6 +66,7 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
     private final EventChannel servicesDiscoveredChannel;
     private final EventChannel characteristicReadChannel;
     private final EventChannel descriptorReadChannel;
+    private final EventChannel mtuChannel;
     private final BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
     private final Map<String, BluetoothGatt> mGattServers = new HashMap<>();
@@ -90,6 +91,7 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
         this.servicesDiscoveredChannel = new EventChannel(registrar.messenger(), NAMESPACE+"/servicesDiscovered");
         this.characteristicReadChannel = new EventChannel(registrar.messenger(), NAMESPACE+"/characteristicRead");
         this.descriptorReadChannel = new EventChannel(registrar.messenger(), NAMESPACE+"/descriptorRead");
+        this.mtuChannel = new EventChannel(registrar.messenger(), NAMESPACE+"/mtu");
         this.mBluetoothManager = (BluetoothManager) r.context().getSystemService(Context.BLUETOOTH_SERVICE);
         this.mBluetoothAdapter = mBluetoothManager.getAdapter();
         channel.setMethodCallHandler(this);
@@ -98,6 +100,7 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
         servicesDiscoveredChannel.setStreamHandler(servicesDiscoveredHandler);
         characteristicReadChannel.setStreamHandler(characteristicReadHandler);
         descriptorReadChannel.setStreamHandler(descriptorReadHandler);
+        mtuChannel.setStreamHandler(mtuHandler);
     }
 
     @Override
@@ -472,6 +475,29 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
                 break;
             }
 
+            case "requestMtu":
+            {
+                byte[] data = call.arguments();
+                Protos.MtuMessage request;
+                try {
+                    request = Protos.MtuMessage.newBuilder().mergeFrom(data).build();
+                } catch (InvalidProtocolBufferException e) {
+                    result.error("RuntimeException", e.getMessage(), e);
+                    break;
+                }
+                BluetoothGatt gattServer = mGattServers.get(request.getRemoteId());
+                if(gattServer == null) {
+                    result.error("request_mtu_error", "no instance of BluetoothGatt, have you connected first?", null);
+                    return;
+                }
+                if(gattServer.requestMtu(request.getMtu())) {
+                    result.success(null);
+                } else {
+                    result.error("request_mtu_error", "unknown reason", null);
+                }
+                break;
+            }
+
             default:
             {
                 result.notImplemented();
@@ -741,6 +767,19 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
         }
     };
 
+    private EventSink mtuSink;
+    private final StreamHandler mtuHandler = new StreamHandler() {
+        @Override
+        public void onListen(Object o, EventChannel.EventSink eventSink) {
+            mtuSink = eventSink;
+        }
+
+        @Override
+        public void onCancel(Object o) {
+            mtuSink = null;
+        }
+    };
+
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -859,7 +898,13 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
 
         @Override
         public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
-            Log.d(TAG, "onMtuChanged: ");
+            Log.d(TAG, "onMtuChanged: " + mtu + " sink:" + mtuSink);
+            if(mtuSink != null) {
+                Protos.MtuMessage.Builder p = Protos.MtuMessage.newBuilder();
+                p.setRemoteId(gatt.getDevice().getAddress());
+                p.setMtu(mtu);
+                mtuSink.success(p.build().toByteArray());
+            }
         }
     };
 

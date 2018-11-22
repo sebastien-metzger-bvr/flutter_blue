@@ -1,7 +1,8 @@
 ///
 //  Generated code. Do not modify.
+//  source: flutterblue.proto
 ///
-// ignore_for_file: non_constant_identifier_names,library_prefixes
+// ignore_for_file: non_constant_identifier_names,library_prefixes,unused_import
 
 const Int32Value$json = const {
   '1': 'Int32Value',
@@ -294,6 +295,14 @@ const DeviceStateResponse_BluetoothDeviceState$json = const {
     const {'1': 'CONNECTING', '2': 1},
     const {'1': 'CONNECTED', '2': 2},
     const {'1': 'DISCONNECTING', '2': 3},
+  ],
+};
+
+const MtuMessage$json = const {
+  '1': 'MtuMessage',
+  '2': const [
+    const {'1': 'remote_id', '3': 1, '4': 1, '5': 9, '10': 'remoteId'},
+    const {'1': 'mtu', '3': 2, '4': 1, '5': 5, '10': 'mtu'},
   ],
 };
 
