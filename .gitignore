@@ -1,9 +1,14 @@
 .DS_Store
 .atom/
+.classpath
 .idea
 .packages
 .pub/
+.project
+.vscode
+.settings
 build/
 ios/.generated/
 packages
 pubspec.lock
+bin/
