@@ -493,8 +493,10 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
                         return;
                     }
                     if (gattServer.requestMtu(request.getMtu())) {
+                        Log.d(TAG, "Request MTU change succeed");
                         result.success(null);
                     } else {
+                        Log.e(TAG, "Request MTU change failed");
                         result.error("request_mtu_error", "unknown reason", null);
                     }
                 } else {
