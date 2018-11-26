@@ -22,6 +22,7 @@
 @property(nonatomic, retain) FlutterBlueStreamHandler *servicesDiscoveredStreamHandler;
 @property(nonatomic, retain) FlutterBlueStreamHandler *characteristicReadStreamHandler;
 @property(nonatomic, retain) FlutterBlueStreamHandler *descriptorReadStreamHandler;
+@property(nonatomic, retain) FlutterBlueStreamHandler *mtuStreamHandler;
 @property(nonatomic, retain) CBCentralManager *centralManager;
 @property(nonatomic) NSMutableDictionary *scannedPeripherals;
 @property(nonatomic) NSMutableArray *servicesThatNeedDiscovered;
@@ -44,32 +45,37 @@
   instance.scannedPeripherals = [NSMutableDictionary new];
   instance.servicesThatNeedDiscovered = [NSMutableArray new];
   instance.characteristicsThatNeedDiscovered = [NSMutableArray new];
-  
+
   // STATE
   FlutterBlueStreamHandler* stateStreamHandler = [[FlutterBlueStreamHandler alloc] init];
   [stateChannel setStreamHandler:stateStreamHandler];
   instance.stateStreamHandler = stateStreamHandler;
-  
+
   // SCAN RESULTS
   FlutterBlueStreamHandler* scanResultStreamHandler = [[FlutterBlueStreamHandler alloc] init];
   [scanResultChannel setStreamHandler:scanResultStreamHandler];
   instance.scanResultStreamHandler = scanResultStreamHandler;
-  
+
   // SERVICES DISCOVERED
   FlutterBlueStreamHandler* servicesDiscoveredStreamHandler = [[FlutterBlueStreamHandler alloc] init];
   [servicesDiscoveredChannel setStreamHandler:servicesDiscoveredStreamHandler];
   instance.servicesDiscoveredStreamHandler = servicesDiscoveredStreamHandler;
-  
+
   // CHARACTERISTIC READ
   FlutterBlueStreamHandler* characteristicReadStreamHandler = [[FlutterBlueStreamHandler alloc] init];
   [characteristicReadChannel setStreamHandler:characteristicReadStreamHandler];
   instance.characteristicReadStreamHandler = characteristicReadStreamHandler;
-  
+
   // DESCRIPTOR READ
   FlutterBlueStreamHandler* descriptorReadStreamHandler = [[FlutterBlueStreamHandler alloc] init];
   [descriptorReadChannel setStreamHandler:descriptorReadStreamHandler];
   instance.descriptorReadStreamHandler = descriptorReadStreamHandler;
-  
+
+  // MTU
+  FlutterBlueStreamHandler* mtuStreamHandler = [[FlutterBlueStreamHandler alloc] init];
+  [servicesDiscoveredChannel setStreamHandler:mtuStreamHandler];
+  instance.mtuStreamHandler = mtuStreamHandler;
+
   [registrar addMethodCallDelegate:instance channel:channel];
 }
 
@@ -241,6 +247,9 @@
     } @catch(FlutterError *e) {
       result(e);
     }
+  } else if([@"requestMtu" isEqualToString:call.method]) {
+    NSLog(@"Cannot request MTU on iOS");
+    result(nil);
   } else {
     result(FlutterMethodNotImplemented);
   }
@@ -368,7 +377,7 @@
   NSLog(@"didConnectPeripheral");
   // Register self as delegate for peripheral
   peripheral.delegate = self;
-  
+
   // Send connection state
   [_channel invokeMethod:@"DeviceState" arguments:[self toFlutterData:[self toDeviceStateProto:peripheral state:peripheral.state]]];
 }
@@ -377,7 +386,7 @@
   NSLog(@"didDisconnectPeripheral");
   // Unregister self as delegate for peripheral, not working #42
   peripheral.delegate = nil;
-  
+
   // Send connection state
   [_channel invokeMethod:@"DeviceState" arguments:[self toFlutterData:[self toDeviceStateProto:peripheral state:peripheral.state]]];
 }
@@ -472,7 +481,7 @@
     [_channel invokeMethod:@"SetNotificationResponse" arguments:[self toFlutterData:response]];
     return;
   }
-  
+
   // Request a read
   [peripheral readValueForDescriptor:cccd];
 }
@@ -638,21 +647,21 @@
   [result setRemoteId:[peripheral.identifier UUIDString]];
   [result setUuid:[service.UUID fullUUIDString]];
   [result setIsPrimary:[service isPrimary]];
-  
+
   // Characteristic Array
   NSMutableArray *characteristicProtos = [NSMutableArray new];
   for(CBCharacteristic *c in [service characteristics]) {
     [characteristicProtos addObject:[self toCharacteristicProto:c]];
   }
   [result setCharacteristicsArray:characteristicProtos];
-  
+
   // Included Services Array
   NSMutableArray *includedServicesProtos = [NSMutableArray new];
   for(CBService *s in [service includedServices]) {
     [includedServicesProtos addObject:[self toServiceProto:peripheral service:s]];
   }
   [result setIncludedServicesArray:includedServicesProtos];
-  
+
   return result;
 }
 
